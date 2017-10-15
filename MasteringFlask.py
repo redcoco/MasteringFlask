@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from flask import Flask,render_template
+from flask import Flask,render_template,Blueprint,url_for,redirect
 from config import DevConfig
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func,desc
@@ -12,6 +12,13 @@ import datetime
 app = Flask(__name__)
 app.config.from_object(DevConfig)
 db = SQLAlchemy(app)
+
+blog_blueprint = Blueprint(
+    'blog',
+    __name__,
+    template_folder='templates/blog',
+    url_prefix="/blog"
+)
 
 
 tags = db.Table(
@@ -104,20 +111,25 @@ def sidebar_data():
 
 
 @app.route('/')
-@app.route('/<int:page>')
+def index():
+    return redirect(url_for('blog.home'))
+
+
+@blog_blueprint.route('/')
+@blog_blueprint.route('/<int:page>')
 def home(page=1):
     posts = Post.query.order_by(Post.publish_date.desc()).paginate(page, 10)
     recent, top_tags = sidebar_data()
 
     return render_template(
-        'home.html',
+        'blog/home.html',
         posts=posts,
         recent=recent,
         top_tags=top_tags
     )
 
 
-@app.route('/post/<int:post_id>', methods=('GET', 'POST'))
+@blog_blueprint.route('/post/<int:post_id>', methods=('GET', 'POST'))
 def post(post_id):
     form = CommentForm()
     if form.validate_on_submit():
@@ -136,7 +148,7 @@ def post(post_id):
     recent, top_tags = sidebar_data()
 
     return render_template(
-        'post.html',
+        'blog/post.html',
         post=post,
         tags=tags,
         comments=comments,
@@ -146,14 +158,14 @@ def post(post_id):
     )
 
 
-@app.route('/tag/<string:tag_name>')
+@blog_blueprint.route('/tag/<string:tag_name>')
 def tag(tag_name):
     tag = Tag.query.filter_by(title=tag_name).first_or_404()
     posts = tag.posts.order_by(Post.publish_date.desc()).all()
     recent, top_tags = sidebar_data()
 
     return render_template(
-        'tag.html',
+        'blog/tag.html',
         tag=tag,
         posts=posts,
         recent=recent,
@@ -161,19 +173,21 @@ def tag(tag_name):
     )
 
 
-@app.route('/user/<string:username>')
+@blog_blueprint.route('/user/<string:username>')
 def user(username):
     user = User.query.filter_by(username=username).first_or_404()
     posts = user.posts.order_by(Post.publish_date.desc()).all()
     recent, top_tags = sidebar_data()
 
     return render_template(
-        'user.html',
+        'blog/user.html',
         user=user,
         posts=posts,
         recent=recent,
         top_tags=top_tags
     )
+
+app.register_blueprint(blog_blueprint)
 
 if __name__ == '__main__':
     app.run()
