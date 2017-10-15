@@ -3,6 +3,11 @@ from flask import Flask,render_template
 from config import DevConfig
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func,desc
+from flask_wtf import FlaskForm
+from wtforms.fields import StringField,TextAreaField
+from wtforms.validators import DataRequired,Length
+import datetime
+
 
 app = Flask(__name__)
 app.config.from_object(DevConfig)
@@ -75,6 +80,20 @@ class Tag(db.Model):
     def __repr__(self):
         return "<Tag '{}'>".format(self.title)
 
+
+def check_no(form, field):
+    import wtforms
+    if '@' in field.data:
+        raise wtforms.ValidationError('content must no "%s"' % '@')
+
+class CommentForm(FlaskForm):
+    name = StringField(
+        'Name',
+        validators=[DataRequired(), check_no, Length(max=20, message='Name max length 20')]
+    )
+    text = TextAreaField(u'Comment', validators=[DataRequired(), Length(max=255)])
+
+
 def sidebar_data():
     recent = Post.query.order_by(Post.publish_date.desc()).limit(5).all()
     top_tags = db.session.query(
@@ -100,6 +119,16 @@ def home(page=1):
 
 @app.route('/post/<int:post_id>', methods=('GET', 'POST'))
 def post(post_id):
+    form = CommentForm()
+    if form.validate_on_submit():
+        new_comment = Comment()
+        new_comment.name = form.name.data
+        new_comment.text = form.text.data
+        new_comment.post_id = post_id
+        new_comment.date = datetime.datetime.now()
+
+        db.session.add(new_comment)
+        db.session.commit()
 
     post = Post.query.get_or_404(post_id)
     tags = post.tags
@@ -112,7 +141,8 @@ def post(post_id):
         tags=tags,
         comments=comments,
         recent=recent,
-        top_tags=top_tags
+        top_tags=top_tags,
+        form=form
     )
 
 

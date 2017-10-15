@@ -9,7 +9,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config(object):
-    pass
+    SECRET_KEY = os.urandom(24)
 
 
 class ProdConfig(Config):
